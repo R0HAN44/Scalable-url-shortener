@@ -35,3 +35,5 @@ yarn-error.log*
 
 # --- Frontend Specific (React/Vite) ---
 .eslintcache
+
+.env
