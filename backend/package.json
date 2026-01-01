@@ -15,7 +15,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/nanoid": "^2.1.0",
+    "bcrypt": "^6.0.0",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "nanoid": "^5.1.6",
     "pg": "^8.16.3",
     "postgres-migrations": "^5.3.0"
   },

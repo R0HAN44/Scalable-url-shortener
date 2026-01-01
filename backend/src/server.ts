@@ -1,6 +1,8 @@
 // src/index.ts
 import express, { Request, Response, NextFunction } from 'express';
 import { findByShortCode } from './modules/links/links.repository';
+import linksRouter from './routes/links';
+import authRouter from './routes/auth';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +13,9 @@ app.use(express.json());
 app.get('/', (_req: Request, res: Response) => {
   res.json({ message: 'URL Shortener Service is running' });
 });
+
+app.use('/api/auth', authRouter);
+app.use('/api/links', linksRouter);
 
 // Redirect route
 app.get('/:code', async (req: Request, res: Response, next: NextFunction) => {
