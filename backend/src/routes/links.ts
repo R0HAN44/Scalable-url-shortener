@@ -13,7 +13,7 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     const userId = req.user!.id; 
     const { originalUrl, expiresAt, password } = req.body;
 
-    const shortCode = nanoid(8).toLowerCase();
+    const shortCode = nanoid(7).toLowerCase();
 
     const link = await createLink({
       userId,
