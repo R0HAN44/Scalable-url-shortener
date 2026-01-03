@@ -67,7 +67,9 @@ CREATE TABLE rate_limit_bans (
 
 -- Indexes for performance
 CREATE INDEX idx_links_user_id ON links(user_id);
-CREATE INDEX idx_links_expires_at ON links(expires_at WHERE expires_at IS NOT NULL);
+CREATE INDEX idx_links_expires_at
+ON links (expires_at)
+WHERE expires_at IS NOT NULL;
 CREATE INDEX idx_links_short_code_active ON links(short_code) WHERE is_active = true;
 
 -- Click events indexes (analytics queries)
@@ -79,8 +81,9 @@ CREATE INDEX idx_click_events_link_browser ON click_events(link_id, browser);
 CREATE INDEX idx_link_daily_stats_link_date ON link_daily_stats(link_id, date);
 
 -- Rate limit bans index
-CREATE INDEX idx_rate_limit_bans_ip_active ON rate_limit_bans(ip_hash) 
-  WHERE banned_until > now();
+CREATE INDEX idx_rate_limit_bans_ip_hash
+ON rate_limit_bans(ip_hash);
+
 
 -- Migration tracking table (created automatically by tool)
 -- CREATE TABLE pgmigrations (...);  -- handled by postgres-migrations

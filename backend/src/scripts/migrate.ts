@@ -2,8 +2,11 @@
 import { migrate } from 'postgres-migrations';
 import { Client } from 'pg';
 import path from 'node:path';
+import 'dotenv/config';
+
 
 async function main() {
+
     const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
     await client.connect();
     try {

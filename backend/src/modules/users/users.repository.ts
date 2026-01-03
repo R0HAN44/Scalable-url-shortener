@@ -11,11 +11,11 @@ export type UserRow = {
 };
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
-  const rows = await query<UserRow>(
-    'SELECT * FROM users WHERE email = $1',
-    [email],
-  );
-  return rows[0] ?? null;
+    const rows = await query<UserRow>(
+      'SELECT * FROM users WHERE email = $1',
+      [email],
+    );
+    return rows[0] ?? null;
 }
 
 export async function createUser(input: {
@@ -23,8 +23,8 @@ export async function createUser(input: {
   password: string;
   name?: string;
 }): Promise<UserRow> {
+
   const passwordHash = await bcrypt.hash(input.password, 12);
-  
   const rows = await query<UserRow>(
     `
     INSERT INTO users (email, password_hash, name)

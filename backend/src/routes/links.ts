@@ -12,7 +12,6 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id; 
     const { originalUrl, expiresAt, password } = req.body;
-
     const shortCode = nanoid(7).toLowerCase();
 
     const link = await createLink({
@@ -23,12 +22,11 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
       passwordHash: password ? await bcrypt.hash(password, 12) : null,
     });
-
     res.status(201).json({
       id: link.id,
-      shortUrl: `http://localhost:3000/${shortCode}`,
-      shortCode,
-      originalUrl: link.original_url,
+      short_url: `http://localhost:3000/${shortCode}`,
+      short_code: link.short_code,
+      original_url: link.original_url,
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create short URL' });

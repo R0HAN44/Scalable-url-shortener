@@ -3,11 +3,16 @@ import express, { Request, Response, NextFunction } from 'express';
 import { findByShortCode } from './modules/links/links.repository';
 import linksRouter from './routes/links';
 import authRouter from './routes/auth';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+}));
 
 // Health check
 app.get('/', (_req: Request, res: Response) => {
