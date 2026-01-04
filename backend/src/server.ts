@@ -1,8 +1,8 @@
-// src/index.ts
 import express, { Request, Response, NextFunction } from 'express';
 import { findByShortCode } from './modules/links/links.repository';
 import linksRouter from './routes/links';
 import authRouter from './routes/auth';
+import redirectRouter from './routes/redirect';
 import cors from 'cors';
 
 const app = express();
@@ -21,25 +21,26 @@ app.get('/', (_req: Request, res: Response) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/links', linksRouter);
+app.use('/:code', redirectRouter);
 
-// Redirect route
-app.get('/:code', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const code = req.params.code as string;
-    const link = await findByShortCode(code);
+// // Redirect route
+// app.get('/:code', async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const code = req.params.code as string;
+//     const link = await findByShortCode(code);
 
-    if (!link) {
-      return res.status(404).json({ error: 'Short link not found' });
-    }
+//     if (!link) {
+//       return res.status(404).json({ error: 'Short link not found' });
+//     }
 
-    // TODO: Enqueue analytics (non-blocking)
-    // publishClickEvent({ linkId: link.id, ip: req.ip, ... });
+//     // TODO: Enqueue analytics (non-blocking)
+//     // publishClickEvent({ linkId: link.id, ip: req.ip, ... });
 
-    res.redirect(302, link.original_url);
-  } catch (error) {
-    next(error); // Error handling middleware
-  }
-});
+//     res.redirect(302, link.original_url);
+//   } catch (error) {
+//     next(error); // Error handling middleware
+//   }
+// });
 
 // Global error handler
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
