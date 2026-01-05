@@ -6,6 +6,7 @@ import { CachedLink, LinkCache } from '../services/link.cache';
 import { findByShortCode } from '../modules/links/links.repository';
 import { PasswordUtil } from '../utils/password.util';
 import { ClickCache } from '../services/click.cache';
+import { publishClickEvent } from '../queues/analytics.queue';
 
 const router = Router();
 
@@ -95,15 +96,15 @@ router.get('/:code', async (req: Request, res: Response, next: NextFunction): Pr
         );
 
         // 9. Analytics event (fire-and-forget)
-        //   publishClickEvent({
-        //     linkId: link.id,
-        //     ipHash,
-        //     userAgent: req.headers['user-agent'],
-        //     referrer: req.headers['referer'],
-        //     timestamp: new Date().toISOString(),
-        //   }).catch(err =>
-        //     console.error('Analytics publish error:', err)
-        //   );
+          publishClickEvent({
+            link_id: link.id,
+            ip_hash : ipHash,
+            user_agent: req.headers['user-agent'],
+            referrer: req.headers['referer'],
+            occurred_at: new Date().toISOString(),
+          }).catch(err =>
+            console.error('Analytics publish error:', err)
+          );
 
         // 10. Redirect
         res.redirect(302, link.original_url);
