@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { ClickEvent } from '../queues/analytics.queue';
-import { redis } from '../services/redis.service';
+import { redis, redisOptions } from '../services/redis.service';
 import { insertClickEvent } from '../modules/analytics/click-events.repository';
 import { computeDailyLinkStats, incrementTotalClicks } from '../modules/links/links.repository';
 import { createDailyStatsLink, upsertDailyLinkStats } from '../modules/analytics/link-daily-stats.repository';
@@ -60,7 +60,7 @@ export function startAnalyticsWorker(): Worker<ClickEvent> {
         'analytics',
         processClickEvent,
         {
-            connection: redis,
+            connection: redisOptions,
             concurrency: 10, // Process 10 jobs concurrently
             limiter: {
                 max: 100, // Max 100 jobs
@@ -86,17 +86,14 @@ export function startAnalyticsWorker(): Worker<ClickEvent> {
         console.log('Analytics worker is ready and listening for jobs');
     });
 
-    process.on('SIGTERM', async () => {
+    const shutdown = async () => {
         console.log('Shutting down worker gracefully...');
         await worker.close();
         process.exit(0);
-    });
-
-    process.on('SIGINT', async () => {
-        console.log('Shutting down worker gracefully...');
-        await worker.close();
-        process.exit(0);
-    });
+    };
+    
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
 
     return worker;
 }

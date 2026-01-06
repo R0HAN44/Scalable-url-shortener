@@ -23,9 +23,15 @@ export class BanCache {
   ): Promise<void> {
     const key = `${this.BAN_PREFIX}${ipHash}`;
     const ttl = Math.max(0, Math.floor((bannedUntil.getTime() - Date.now()) / 1000));
-    
+
     if (ttl > 0) {
-      await redis.setEx(key, ttl, JSON.stringify({ reason, bannedUntil }));
+      await redis.set(
+        key,
+        JSON.stringify({ reason, bannedUntil }),
+        "EX",
+        ttl 
+      );
+
     }
   }
 

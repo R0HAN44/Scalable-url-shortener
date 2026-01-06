@@ -1,21 +1,21 @@
 import { redis } from "./redis.service";
 
 export class ClickCache {
-    private static readonly CLICK_PREFIX = 'clicks:';
-    private static readonly TTL = 86400 * 2; // 2 days
+    private static readonly CLICK_PREFIX = "clicks:";
+    private static readonly TTL_SECONDS = 86400 * 2; // 2 days
 
     /**
-     * Increment click counter for a link
+     * Increment click counter for a link (per day)
      */
     static async increment(linkId: number): Promise<number> {
         const today = this.getTodayKey();
         const key = `${this.CLICK_PREFIX}${linkId}:${today}`;
 
-        const count = await redis.incr(key);
+        const count: number = await redis.incr(key);
 
-        // Set expiry only on first increment
+        // Set expiry only once (safe under concurrency)
         if (count === 1) {
-            await redis.expire(key, this.TTL);
+            await redis.expire(key, this.TTL_SECONDS);
         }
 
         return count;
@@ -29,31 +29,42 @@ export class ClickCache {
         const key = `${this.CLICK_PREFIX}${linkId}:${today}`;
 
         const count = await redis.get(key);
-        return count ? parseInt(count, 10) : 0;
+        return count ? Number(count) : 0;
     }
 
     /**
-     * Get all pending click counters (for batch processing)
+     * Get all pending click counters (SCAN-based, non-blocking)
      */
-    static async getAllPendingCounters(): Promise<Array<{ linkId: number; date: string; count: number }>> {
+    static async getAllPendingCounters(): Promise<
+        Array<{ linkId: number; date: string; count: number }>
+    > {
         const pattern = `${this.CLICK_PREFIX}*`;
+        let cursor = "0";
+        const keys: string[] = [];
 
-        // Note: KEYS is blocking, use SCAN in production
-        const keys = await redis.keys(pattern);
+        do {
+            const [nextCursor, batch] = await redis.scan(
+                cursor,
+                "MATCH",
+                pattern,
+                "COUNT",
+                100
+            );
+            cursor = nextCursor;
+            keys.push(...batch);
+        } while (cursor !== "0");
 
-        if (keys.length === 0) {
-            return [];
-        }
+        if (keys.length === 0) return [];
 
-        // Get all values at once
-        const values = await redis.mGet(keys);
+        const values = await redis.mget(...keys);
 
         return keys.map((key, index) => {
-            const [, linkId, date] = key.split(':');
+            const [, linkId, dateKey] = key.split(":");
+
             return {
-                linkId: parseInt(linkId, 10),
-                date: this.formatDateFromKey(date),
-                count: parseInt(values[index] || '0', 10),
+                linkId: Number(linkId),
+                date: this.formatDateFromKey(dateKey),
+                count: Number(values[index] ?? 0),
             };
         });
     }
@@ -62,22 +73,30 @@ export class ClickCache {
      * Delete a counter after flushing to DB
      */
     static async deleteCounter(linkId: number, date: string): Promise<void> {
-        const dateKey = date.replace(/-/g, '');
+        const dateKey = date.replace(/-/g, "");
         const key = `${this.CLICK_PREFIX}${linkId}:${dateKey}`;
         await redis.del(key);
     }
 
     /**
-     * Get today's date key (YYYYMMDD format)
+     * Get today's date key (YYYYMMDD)
      */
     private static getTodayKey(): string {
-        return new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const d = new Date();
+        return (
+            d.getUTCFullYear().toString() +
+            String(d.getUTCMonth() + 1).padStart(2, "0") +
+            String(d.getUTCDate()).padStart(2, "0")
+        );
     }
 
     /**
-     * Convert YYYYMMDD to YYYY-MM-DD
+     * Convert YYYYMMDD → YYYY-MM-DD
      */
     private static formatDateFromKey(dateKey: string): string {
-        return `${dateKey.slice(0, 4)}-${dateKey.slice(4, 6)}-${dateKey.slice(6, 8)}`;
+        return `${dateKey.slice(0, 4)}-${dateKey.slice(4, 6)}-${dateKey.slice(
+            6,
+            8
+        )}`;
     }
 }

@@ -10,25 +10,22 @@ export interface CachedLink {
 }
 
 export class LinkCache {
-    private static readonly LINK_PREFIX = 'link:';
-    private static readonly DEFAULT_TTL = 86400; // 24 hours
+    private static readonly LINK_PREFIX = "link:";
+    private static readonly DEFAULT_TTL_SECONDS = 86400; // 24 hours
 
     /**
      * Get link from cache
      */
     static async get(shortCode: string): Promise<CachedLink | null> {
         const key = `${this.LINK_PREFIX}${shortCode}`;
-        const data = await redis.get(key);
 
-        if (!data) {
-            return null;
-        }
+        const data = await redis.get(key);
+        if (!data) return null;
 
         try {
-            return JSON.parse(data);
-        } catch (error) {
-            console.error('Failed to parse cached link:', error);
-            await redis.del(key); // Remove corrupted cache
+            return JSON.parse(data) as CachedLink;
+        } catch (err) {
+            await redis.del(key);
             return null;
         }
     }
@@ -40,7 +37,7 @@ export class LinkCache {
         const key = `${this.LINK_PREFIX}${shortCode}`;
         const ttl = this.calculateTTL(link.expires_at);
 
-        await redis.setEx(key, ttl, JSON.stringify(link));
+        await redis.set(key, JSON.stringify(link), "EX", ttl);
     }
 
     /**
@@ -58,7 +55,8 @@ export class LinkCache {
         if (shortCodes.length === 0) return;
 
         const keys = shortCodes.map(code => `${this.LINK_PREFIX}${code}`);
-        await redis.del(keys);
+
+        await redis.del(...keys);
     }
 
     /**
@@ -66,14 +64,18 @@ export class LinkCache {
      */
     private static calculateTTL(expiresAt: string | null): number {
         if (!expiresAt) {
-            return this.DEFAULT_TTL;
+            return this.DEFAULT_TTL_SECONDS;
         }
 
-        const expiryTime = new Date(expiresAt).getTime();
+        const expiryTime = Date.parse(expiresAt);
         const now = Date.now();
+
         const secondsUntilExpiry = Math.floor((expiryTime - now) / 1000);
 
-        // Minimum 60 seconds, maximum DEFAULT_TTL
-        return Math.max(60, Math.min(secondsUntilExpiry, this.DEFAULT_TTL));
+        if (secondsUntilExpiry <= 0) {
+            return 60;
+        }
+
+        return Math.min(secondsUntilExpiry, this.DEFAULT_TTL_SECONDS);
     }
 }

@@ -1,53 +1,57 @@
-import { createClient, RedisClientType } from 'redis';
+import Redis from "ioredis";
+
+export const redisOptions = {
+  host: process.env.REDIS_HOST,
+  port: Number(process.env.REDIS_PORT),
+  password: process.env.REDIS_PASSWORD,
+  maxRetriesPerRequest: null, // REQUIRED for BullMQ
+};
 
 class RedisService {
-  private client: RedisClientType;
-  private isConnected: boolean = false;
+  private client: Redis;
+  private isReady: boolean = false;
 
   constructor() {
-    this.client = createClient({
-      socket: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        reconnectStrategy: (retries) => {
-          if (retries > 10) {
-            console.error('Too many Redis reconnection attempts, giving up');
-            return new Error('Too many retries');
-          }
-          const delay = Math.min(retries * 50, 2000);
-          return delay;
-        },
+    this.client = new Redis({
+      ...redisOptions,
+      retryStrategy: (times) => {
+        if (times > 10) {
+          console.error('Too many Redis reconnection attempts, giving up');
+          return null;
+        }
+        const delay = Math.min(times * 50, 2000);
+        return delay;
       },
-      password: process.env.REDIS_PASSWORD,
     });
 
-    this.client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
+    this.registerEvents();
+  }
+  private registerEvents() {
+    this.client.on("ready", () => {
+      console.log("✅ Redis ready");
+      this.isReady = true;
     });
 
-    this.client.on('connect', () => {
-      console.log('✅ Redis connected');
-      this.isConnected = true;
+    this.client.on("error", (err) => {
+      console.error("Redis error:", err);
     });
 
-    this.client.on('disconnect', () => {
-      console.log('⚠️  Redis disconnected');
-      this.isConnected = false;
+    this.client.on("end", () => {
+      console.warn("Redis connection closed");
+      this.isReady = false;
+    });
+
+    this.client.on("reconnecting", () => {
+      console.log("Redis reconnecting...");
     });
   }
 
-  async connect(): Promise<void> {
-    if (!this.isConnected) {
-      await this.client.connect();
-    }
-  }
-
-  getClient(): RedisClientType {
+  getClient(): Redis {
     return this.client;
   }
 
   async disconnect(): Promise<void> {
-    if (this.isConnected) {
+    if (this.client.status !== "end") {
       await this.client.quit();
     }
   }
@@ -55,6 +59,3 @@ class RedisService {
 
 export const redisService = new RedisService();
 export const redis = redisService.getClient();
-
-// Initialize connection
-redisService.connect().catch(console.error);

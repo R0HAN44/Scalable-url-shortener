@@ -1,5 +1,5 @@
-import { Queue } from 'bullmq';
-import { redis } from '../services/redis.service';
+import { Queue } from "bullmq";
+import { redisOptions } from "../services/redis.service";
 
 export interface ClickEvent {
     link_id: number;
@@ -13,30 +13,37 @@ export interface ClickEvent {
     referrer?: string;
 }
 
-export const analyticsQueue = new Queue<ClickEvent>('analytics', {
-    connection: redis,
+type AnalyticsJobName = "click";
+
+export const analyticsQueue = new Queue<ClickEvent, void, AnalyticsJobName>("analytics", {
+    connection: redisOptions,
     defaultJobOptions: {
         attempts: 3,
         backoff: {
-            type: 'exponential',
+            type: "exponential",
             delay: 2000,
         },
         removeOnComplete: {
-            age: 3600, // Keep completed jobs for 1 hour
+            age: 3600,
             count: 1000,
         },
         removeOnFail: {
-            age: 24 * 3600, // Keep failed jobs for 24 hours
+            age: 24 * 3600,
         },
-    }
-})
+    },
+});
+
 
 export async function publishClickEvent(data: ClickEvent): Promise<void> {
     await analyticsQueue.add('click', data, {
-        priority: 1, // Lower priority than critical jobs
+        priority: 1,
     })
 }
 
-process.on('SIGTERM', async () => {
-  await analyticsQueue.close();
-});
+const shutdown = async () => {
+    await analyticsQueue.close();
+    process.exit(0);
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

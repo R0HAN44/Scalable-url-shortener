@@ -1,11 +1,11 @@
 import { redis } from "./redis.service";
 
 export class RateLimitCache {
-  private static readonly RATE_LIMIT_PREFIX = 'ratelimit:';
+  private static readonly RATE_LIMIT_PREFIX = "ratelimit:";
 
   /**
    * Check and increment rate limit counter
-   * @returns true if rate limit exceeded, false otherwise
+   * Sliding window using INCR + EXPIRE
    */
   static async checkAndIncrement(
     key: string,
@@ -13,10 +13,9 @@ export class RateLimitCache {
     windowSeconds: number
   ): Promise<{ exceeded: boolean; current: number; remaining: number }> {
     const fullKey = `${this.RATE_LIMIT_PREFIX}${key}`;
-    
+
     const current = await redis.incr(fullKey);
-    
-    // Set expiry on first request
+
     if (current === 1) {
       await redis.expire(fullKey, windowSeconds);
     }
@@ -28,7 +27,7 @@ export class RateLimitCache {
   }
 
   /**
-   * Check rate limit for link creation by IP
+   * Rate limit for anonymous link creation (by IP)
    */
   static async checkLinkCreation(
     ipHash: string,
@@ -36,16 +35,20 @@ export class RateLimitCache {
     windowSeconds: number = 3600
   ): Promise<{ allowed: boolean; remaining: number }> {
     const key = `create:${ipHash}`;
-    const result = await this.checkAndIncrement(key, maxLinks, windowSeconds);
-    
+    const { exceeded, remaining } = await this.checkAndIncrement(
+      key,
+      maxLinks,
+      windowSeconds
+    );
+
     return {
-      allowed: !result.exceeded,
-      remaining: result.remaining,
+      allowed: !exceeded,
+      remaining,
     };
   }
 
   /**
-   * Check rate limit for authenticated user
+   * Rate limit for authenticated user
    */
   static async checkUserLinkCreation(
     userId: number,
@@ -53,11 +56,15 @@ export class RateLimitCache {
     windowSeconds: number = 3600
   ): Promise<{ allowed: boolean; remaining: number }> {
     const key = `user:${userId}`;
-    const result = await this.checkAndIncrement(key, maxLinks, windowSeconds);
-    
+    const { exceeded, remaining } = await this.checkAndIncrement(
+      key,
+      maxLinks,
+      windowSeconds
+    );
+
     return {
-      allowed: !result.exceeded,
-      remaining: result.remaining,
+      allowed: !exceeded,
+      remaining,
     };
   }
 
@@ -75,6 +82,6 @@ export class RateLimitCache {
   static async getCount(key: string): Promise<number> {
     const fullKey = `${this.RATE_LIMIT_PREFIX}${key}`;
     const count = await redis.get(fullKey);
-    return count ? parseInt(count, 10) : 0;
+    return count ? Number(count) : 0;
   }
 }
