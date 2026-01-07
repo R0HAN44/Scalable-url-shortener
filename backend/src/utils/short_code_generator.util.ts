@@ -9,7 +9,7 @@ export const encodeBase64 = (id: number): string => {
         encodedString += CHARS[remainder];
         num = Math.floor(num / 62);
     }
-    return encodedString;
+    return encodedString.padStart(6, CHARS[0]);
 }
 
 export const decodeBase64 = (str: string): number => {

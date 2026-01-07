@@ -65,6 +65,13 @@ CREATE TABLE rate_limit_bans (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE short_code_pool (
+  id           BIGINT PRIMARY KEY,
+  next_id      BIGINT NOT NULL,
+);
+
+INSERT INTO short_code_pool (id, next_id) VALUES (1, 0);
+
 -- Indexes for performance
 CREATE INDEX idx_links_user_id ON links(user_id);
 CREATE INDEX idx_links_expires_at
