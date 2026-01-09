@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Enable citext extension for case-insensitive emails
 CREATE EXTENSION IF NOT EXISTS citext;
 
@@ -67,7 +69,7 @@ CREATE TABLE rate_limit_bans (
 
 CREATE TABLE short_code_pool (
   id           BIGINT PRIMARY KEY,
-  next_id      BIGINT NOT NULL,
+  next_id      BIGINT NOT NULL
 );
 
 INSERT INTO short_code_pool (id, next_id) VALUES (1, 0);
@@ -94,3 +96,5 @@ ON rate_limit_bans(ip_hash);
 
 -- Migration tracking table (created automatically by tool)
 -- CREATE TABLE pgmigrations (...);  -- handled by postgres-migrations
+
+COMMIT;
