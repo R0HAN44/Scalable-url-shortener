@@ -6,11 +6,12 @@ import bcrypt from 'bcrypt';
 import { requireAuth } from '../middleware/auth';
 import { KgsService } from '../kgs.service';
 import { reserveKeyRange } from '../modules/short_code_generation/short_code_generation.repository';
+import { limitLinkCreation } from '../middleware/linkCreationRateLimiter';
 
 const router = Router();
 
 // Protected: POST /api/links
-router.post('/', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, limitLinkCreation, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id;
     const { originalUrl, expiresAt, password } = req.body;

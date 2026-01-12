@@ -2,11 +2,12 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { findUserByEmail, createUser } from '../modules/users/users.repository';
 import { generateToken } from '../modules/auth/auth';
+import { limitAuthRequests } from '../middleware/authRateLimiter';
 
 const router = Router();
 
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', limitAuthRequests, async (req, res) => {
   try {
     const { email, password, name } = req.body;
     if (!email || !password) {
@@ -28,7 +29,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', limitAuthRequests, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await findUserByEmail(email);

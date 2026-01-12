@@ -7,10 +7,11 @@ import { findByShortCode } from '../modules/links/links.repository';
 import { PasswordUtil } from '../utils/password.util';
 import { ClickCache } from '../services/click.cache';
 import { publishClickEvent } from '../queues/analytics.queue';
+import { limitRedirects } from '../middleware/redirectRateLimiter';
 
 const router = Router();
 
-router.get('/:code', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.get('/:code', limitRedirects, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const shortCode = req.params.code;
         const ipHash = HashUtil.hashIp(req.ip);
