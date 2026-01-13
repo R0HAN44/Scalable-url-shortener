@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { createLink, findLinksByUserId } from '../modules/links/links.repository';
 import { AuthenticatedRequest } from '../modules/auth/auth';
-import { nanoid } from 'nanoid';
 import bcrypt from 'bcrypt';
 import { requireAuth } from '../middleware/auth';
-import { KgsService } from '../kgs.service';
-import { reserveKeyRange } from '../modules/short_code_generation/short_code_generation.repository';
 import { limitLinkCreation } from '../middleware/linkCreationRateLimiter';
+import { getShortCode } from '../kgs.client';
 
 const router = Router();
 
@@ -15,9 +13,7 @@ router.post('/', requireAuth, limitLinkCreation, async (req: AuthenticatedReques
   try {
     const userId = req.user!.id;
     const { originalUrl, expiresAt, password } = req.body;
-    const kgsService = new KgsService({ reserveRange: reserveKeyRange }, 10000, 0.2);
-    kgsService.start();
-    const shortCode = await kgsService.getNextKey();
+    const shortCode = await getShortCode();
 
     const link = await createLink({
       userId,

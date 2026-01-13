@@ -2,43 +2,41 @@ version: "3.9"
 
 services:
   api:
-    build: .
+    build:
+      context: .
+    image: backend-app:latest
     container_name: backend_api
     ports:
       - "3000:3000"
     env_file:
       - .env
     depends_on:
-      - postgres
       - redis
 
   worker:
-    build: .
+    image: backend-app:latest
     container_name: backend_worker
     command: ["node", "dist/worker.js"]
     env_file:
       - .env
     depends_on:
-      - postgres
       - redis
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: backend_postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: appdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    
+  kgs:
+    image: backend-app:latest
+    container_name: backend_kgs
+    command: ["node", "dist/kgs.service.js"]
+    env_file:
+      - .env
 
   redis:
     image: redis:7-alpine
     container_name: backend_redis
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
 
 volumes:
-  postgres_data:
+  redis_data:

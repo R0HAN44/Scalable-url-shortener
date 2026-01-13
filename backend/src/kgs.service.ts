@@ -1,71 +1,71 @@
+import express from "express";
+import { reserveKeyRange } from "./modules/short_code_generation/short_code_generation.repository";
 import { encodeBase64 } from "./utils/short_code_generator.util";
 
-export class KgsService {
-    private keysPool: string[] = [];
+class KgsService {
+  private keysPool: string[] = [];
+  private isRefilling = false;
 
-    private isRefilling: boolean = false;
-    private isShuttingDown: boolean = false;
-    private initialized: boolean = false;
+  constructor(
+    private readonly batchSize = 10_000,
+    private readonly refillThreshold = 0.2
+  ) {}
 
-    private readonly batchSize: number;
-    private readonly refillThreshold: number;
+  async start() {
+    await this.refill();
+  }
 
-    constructor(
-        private readonly db: { reserveRange: (count: number) => Promise<[number, number]> },
-        batchSize = 10000,
-        refillThreshold = 0.2
-    ) {
-        this.batchSize = batchSize;
-        this.refillThreshold = refillThreshold;
+  getKey(): string {
+    const key = this.keysPool.pop();
+    if (!key) {
+      throw new Error("No keys available");
     }
 
-    async start(): Promise<void> {
-        await this.refillKeysPool();
-        this.initialized = true;
+    if (this.keysPool.length < this.batchSize * this.refillThreshold) {
+      this.refill().catch(console.error);
     }
 
-    async shutdown(): Promise<void> {
-        this.isShuttingDown = true;
+    return key;
+  }
+
+  private async refill() {
+    if (this.isRefilling) return;
+    this.isRefilling = true;
+
+    try {
+      const [start, end] = await reserveKeyRange(this.batchSize);
+      for (let i = start; i <= end; i++) {
+        this.keysPool.push(encodeBase64(i));
+      }
+    } finally {
+      this.isRefilling = false;
     }
-
-    getNextKey(): string {
-        if (this.isShuttingDown) {
-            throw new Error("Service is shutting down");
-        }
-        if (!this.initialized) {
-            throw new Error("Service not initialized");
-        }
-        if (this.isRefilling) {
-            throw new Error("Service is refilling keys");
-        }
-        const key = this.keysPool.pop();
-        if (!key) {
-            throw new Error("No keys available");
-        }
-
-        if (this.keysPool.length < this.batchSize * this.refillThreshold) {
-            this.refillKeysPool().catch(() => {});
-        }
-        return key;
-    }
-
-    private async refillKeysPool(): Promise<void> {
-        if(this.isRefilling || this.isShuttingDown) {
-            return;
-        }
-
-        this.isRefilling = true;
-        try {
-            const [start, end] = await this.db.reserveRange(this.batchSize);
-            const newKeys: string[] = [];
-            for (let i = start; i <= end; i++) {
-                newKeys.push(encodeBase64(i));
-            }
-            this.keysPool.push(...newKeys);
-        } catch (error) {
-            console.error("Error refilling keys pool:", error);
-        } finally {
-            this.isRefilling = false;
-        }
-    }
+  }
 }
+
+const kgsService = new KgsService();
+
+const app = express();
+const PORT = process.env.KGS_PORT || 4000;
+
+app.get("/next-key", (_req, res) => {
+  try {
+    const key = kgsService.getKey();
+    res.json({ key });
+  } catch (err) {
+    res.status(503).json({ error: "KGS unavailable" });
+  }
+});
+
+async function main() {
+  await kgsService.start();
+
+  app.listen(PORT, () => {
+    console.log(`KGS running on port ${PORT}`);
+  });
+}
+
+main().catch((err) => {
+  console.error("Failed to start kgs server", err);
+  process.exit(1);
+});
